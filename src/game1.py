@@ -8,7 +8,12 @@ altura_mesa = 300
 altura_cliente = 150
 largura_cliente = 80
 espaco_entre_clientes = 40
-raio = 30
+y = HEIGHT // 2
+vel_queda = 0
+gravidade = 0.2
+chao = altura_mesa - 100
+queda_rolo = False
+queda_massa = False
 movendoMassa = False
 movendoRolo = False
 movendoMassaAberta = False
@@ -29,9 +34,9 @@ for i in range(num_clientes):
     clientes.append(pygame.Rect(x, cliente_y, largura_cliente, altura_cliente))
 
 mesa = pygame.Rect(0, HEIGHT - altura_mesa, WIDTH, altura_mesa)
-massa = pygame.Rect(100, 100, 100, 100)
-massa_aberta = pygame.Rect(150, 100, 100, 150)
-rolo = pygame.Rect(100, 500, 100, 50)
+massa = pygame.Rect(50, 740, 100, 100)
+massa_aberta = pygame.Rect(150, 500, 100, 150)
+rolo = pygame.Rect(50, 640, 100, 50)
 
 # Cor da mesa
 cor_mesa = (100, 50, 20)
@@ -48,10 +53,13 @@ while running:
             elif rolo.collidepoint(pygame.mouse.get_pos()):
                 movendoRolo = not movendoRolo
             elif massa_aberta.collidepoint(pygame.mouse.get_pos()):
-                movendoMassaAberta = not movendoMassaAberta
+                movendoMassaAberta = not movendoMassaAberta       
 
     if movendoMassa:
         mouse_x, mouse_y = pygame.mouse.get_pos()
+        if not mesa.collidepoint((mouse_x, mouse_y)):
+                queda_massa = True
+                vel_queda = 0
         massa.center = (mouse_x, mouse_y)
     
     if movendoMassaAberta:
@@ -60,9 +68,38 @@ while running:
 
     if movendoRolo:
         mouse_x, mouse_y = pygame.mouse.get_pos()
+        if not mesa.collidepoint((mouse_x, mouse_y)):
+                queda_rolo = True
+                vel_queda = 0
         rolo.center = (mouse_x, mouse_y)
         if massa.center == rolo.center:
             mostrarMassa = False
+
+    if queda_massa:
+        vel_queda += gravidade
+        massa.y += vel_queda
+
+        topo_mesa = mesa.top + 150
+
+        if massa.bottom >= topo_mesa:
+            massa.bottom = topo_mesa
+
+        if massa.bottom == topo_mesa:
+            queda_massa = False
+            vel_queda = 0
+        
+    if queda_rolo:
+        vel_queda += gravidade
+        rolo.y += vel_queda
+
+        topo_mesa = mesa.top + 150
+
+        if rolo.bottom >= topo_mesa:
+            rolo.bottom = topo_mesa
+
+        if rolo.bottom == topo_mesa:
+            queda_rolo = False
+            vel_queda = 0
 
     screen.fill((255, 255, 255))  # fundo branco
     
