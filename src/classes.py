@@ -51,3 +51,20 @@ class ObjetoFisico:
             self.caindo = True
             self.vel_queda = 0
         self.rect.center = mouse_pos
+
+class Rolo(ObjetoFisico):
+    def __init__(self, x, y, largura, altura, cor):
+        super().__init__(x, y, largura, altura, cor, gravidade=0.01)
+        self.massa_aberta = False
+
+    def abrir_massa(self, mouse_pos, massa):
+        self.rect.center = mouse_pos
+        
+        if self.massa_aberta:
+            return False
+            
+        if pygame.mouse.get_pressed()[0] and self.rect.colliderect(massa.rect):
+            self.massa_aberta = True
+            return False
+            
+        return True
