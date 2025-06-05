@@ -65,7 +65,7 @@ for i in range(num_clientes):
 mesa = pygame.Rect(0, HEIGHT - altura_mesa, WIDTH, altura_mesa)
 massa = classes.ObjetoFisico(50, 740, 100, 100, DOUGH_COLOR)
 massa_aberta = classes.ObjetoFisico(150, 500, 100, 150, PIZZA_READY_COLOR)
-rolo = classes.ObjetoFisico(50, 640, 100, 50, YELLOW)
+rolo = classes.Rolo(50, 640, 100, 50, YELLOW)
 
 # Fonte para texto
 font = pygame.font.SysFont('Arial', 24)
@@ -99,6 +99,7 @@ while running:
 
     if movendoRolo:
         rolo.mover_para_mouse(pygame.mouse.get_pos(), mesa)
+        mostrarMassa = rolo.abrir_massa(pygame.mouse.get_pos(), massa)
 
     # Física dos objetos
     topo_mesa = mesa.top + 150
