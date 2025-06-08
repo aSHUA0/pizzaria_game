@@ -1,6 +1,6 @@
 import pygame
 import threading
-import time
+import random
 import classes
 from config import color, states
 
@@ -41,6 +41,13 @@ chao = altura_mesa - 100
 # Semaforo e threads
 pizza_semaforo = threading.Semaphore(1)
 
+# Sabores disponíveis
+SABORES = ["calabresa", "queijo", "palmito"]
+CORES_SABORES = {
+    "calabresa": color.CALABRESA_COLOR,
+    "queijo": color.QUEIJO_COLOR,
+    "palmito": color.PALMITO_COLOR
+}
 
 # Inicialização dos clientes
 cliente_y = HEIGHT - altura_mesa - altura_cliente
@@ -55,14 +62,23 @@ for i in range(num_clientes):
     id_cliente = i + 1
     x = cliente1_x + i * (largura_cliente + espaco_entre_clientes)
     rect = pygame.Rect(x, cliente_y, largura_cliente, altura_cliente)
+    sabor_desejado = random.choice(SABORES)
     clientes_estado[id_cliente] = "idle"
-    clientes.append({"id": id_cliente, "rect": rect})
+    clientes.append({"id": id_cliente, "rect": rect, "sabor_desejado": sabor_desejado})
 
 # Objetos da cena
 mesa = pygame.Rect(0, HEIGHT - altura_mesa, WIDTH, altura_mesa)
 massa = classes.ObjetoFisico(50, 740, 100, 100, color.DOUGH_COLOR)
 massa_aberta = classes.ObjetoFisico(150, 500, 100, 150, color.PIZZA_READY_COLOR)
+massa_aberta.sabor = None  # Inicialmente sem sabor
 rolo = classes.Rolo(50, 640, 100, 50, color.YELLOW)
+
+# Ingredientes
+ingredientes = [
+    classes.Ingrediente(200, 740, 80, 30, color.CALABRESA_COLOR, "calabresa"),
+    classes.Ingrediente(300, 740, 80, 30, color.QUEIJO_COLOR, "queijo"),
+    classes.Ingrediente(400, 740, 80, 30, color.PALMITO_COLOR, "palmito")
+]
 
 # Fonte para texto
 font = pygame.font.SysFont('Arial', 24)
@@ -75,27 +91,45 @@ while running:
             running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if massa.rect.collidepoint(pygame.mouse.get_pos()):
+            mouse_pos = pygame.mouse.get_pos()
+            
+            # Verifica clique nos ingredientes
+            for ingrediente in ingredientes:
+                if ingrediente.rect.collidepoint(mouse_pos):
+                    states.sabor_selecionado = ingrediente.sabor
+                    states.movendo_ingrediente = True
+            
+            # Verifica clique na massa aberta para adicionar sabor
+            if massa_aberta.rect.collidepoint(mouse_pos) and states.sabor_selecionado:
+                massa_aberta.sabor = states.sabor_selecionado
+                massa_aberta.cor = CORES_SABORES[states.sabor_selecionado]
+                states.sabor_selecionado = None
+                states.pizza_pronta = True
+            
+            if massa.rect.collidepoint(mouse_pos):
                 states.movendoMassa = not states.movendoMassa
-            elif rolo.rect.collidepoint(pygame.mouse.get_pos()):
+            elif rolo.rect.collidepoint(mouse_pos):
                 states.movendoRolo = not states.movendoRolo
-            elif massa_aberta.rect.collidepoint(pygame.mouse.get_pos()):
+            elif massa_aberta.rect.collidepoint(mouse_pos):
                 states.movendoMassaAberta = not states.movendoMassaAberta
             else:
                 for cliente in clientes:
-                    if cliente["rect"].collidepoint(pygame.mouse.get_pos()):
+                    if cliente["rect"].collidepoint(mouse_pos):
                         cliente_id = cliente["id"]
                         if clientes_estado[cliente_id] == "idle":
                             cliente_obj = classes.Cliente(
-                            cliente_id,
-                            cliente["rect"],
-                            massa_aberta,
-                            pizza_semaforo,
-                            clientes_estado,
-                            on_finish=cliente_finalizou
-                        )
-                        cliente_obj.start()
+                                cliente_id,
+                                cliente["rect"],
+                                massa_aberta,
+                                pizza_semaforo,
+                                clientes_estado,
+                                on_finish=cliente_finalizou,
+                                sabor_desejado=cliente["sabor_desejado"]
+                            )
+                            cliente_obj.start()
 
+        if event.type == pygame.MOUSEBUTTONUP:
+            states.movendo_ingrediente = False
 
     # Movimento dos objetos
     if states.movendoMassa:
@@ -108,18 +142,19 @@ while running:
         rolo.mover_para_mouse(pygame.mouse.get_pos(), mesa)
         states.mostrarMassa = rolo.abrir_massa(pygame.mouse.get_pos(), massa)
 
+    if states.movendo_ingrediente and states.sabor_selecionado:
+        for ingrediente in ingredientes:
+            if ingrediente.sabor == states.sabor_selecionado:
+                ingrediente.mover_para_mouse(pygame.mouse.get_pos(), mesa)
+
     # Física dos objetos
     topo_mesa = mesa.top + 150
     massa.aplicar_gravidade(topo_mesa)
     massa_aberta.aplicar_gravidade(topo_mesa)
     rolo.aplicar_gravidade(topo_mesa)
+    for ingrediente in ingredientes:
+        ingrediente.aplicar_gravidade(topo_mesa)
     
-    # Verifica se a massa aberta foi entregue a algum cliente
-    for cliente in clientes:
-        if massa_aberta.rect.colliderect(cliente["rect"]) and clientes_estado.get(cliente["id"], "idle") == "esperando":
-            clientes_estado[cliente["id"]] = "recebendo"
-            states.pizza_pronta = False
-
     # Renderização
     screen.fill(color.WHITE)
     
@@ -130,29 +165,61 @@ while running:
     if states.mostrarMassa:
         pygame.draw.rect(screen, color.DOUGH_COLOR, massa)
     else:
-        pygame.draw.rect(screen, color.PIZZA_READY_COLOR if states.pizza_pronta else color.DOUGH_COLOR, massa_aberta)
+        pygame.draw.rect(screen, massa_aberta.cor, massa_aberta)
     
     pygame.draw.rect(screen, color.ROLLER_COLOR, rolo)
+    
+    # Ingredientes
+    for ingrediente in ingredientes:
+        pygame.draw.rect(screen, ingrediente.cor, ingrediente.rect)
+        texto = font.render(ingrediente.sabor.capitalize(), True, color.BLACK)
+        screen.blit(texto, (ingrediente.rect.x, ingrediente.rect.y - 25))
     
     # Clientes
     for cliente in clientes:
         id_cliente = cliente["id"]
         rect = cliente["rect"]
         estado = clientes_estado.get(id_cliente, "idle")
+        sabor_desejado = cliente["sabor_desejado"]
 
+        # Cor do cliente baseada no estado
         if estado == "comendo":
             cor = color.GREEN
         elif estado == "esperando":
             cor = color.YELLOW
         elif estado == "recebendo":
             cor = color.BLUE
+        elif estado == "erro":
+            cor = color.RED
         else:
             cor = color.BLACK
 
         pygame.draw.rect(screen, cor, rect)
-        texto = font.render(f"Cliente {id_cliente}: {estado}", True, color.BLACK)
-        screen.blit(texto, (rect.x, rect.y - 25))
-
+        
+        # Indicador visual do sabor dentro do cliente
+        cor_sabor = CORES_SABORES[sabor_desejado]
+        indicador_sabor = pygame.Rect(rect.x + 5, rect.y + 5, rect.width - 10, 15)
+        pygame.draw.rect(screen, cor_sabor, indicador_sabor)
+        
+        # Textos informativos
+        texto_id = font.render(f"Cliente {id_cliente}", True, color.BLACK)
+        texto_estado = font.render(f"{estado}", True, color.BLACK)
+        texto_sabor = font.render(f"Sabor: {sabor_desejado}", True, cor_sabor)
+        
+        # Posiciona os textos acima do cliente
+        screen.blit(texto_id, (rect.x, rect.y - 75))
+        screen.blit(texto_estado, (rect.x, rect.y - 50))
+        screen.blit(texto_sabor, (rect.x, rect.y - 25))
+        
+        # Mensagem de erro se aplicável
+        if estado == "erro":
+            texto_erro = font.render("Sabor errado!", True, color.RED)
+            screen.blit(texto_erro, (rect.x, rect.y - 100))
+    
+    # Sabor selecionado
+    if states.sabor_selecionado:
+        texto_sabor = font.render(f"Sabor selecionado: {states.sabor_selecionado}", True, color.BLACK)
+        screen.blit(texto_sabor, (50, 300))
     
     # Painel de informações do semáforo
     semaphore_value = pizza_semaforo._value
@@ -169,9 +236,11 @@ while running:
     instructions = [
         "Clique nos clientes para pedir pizza",
         "Arraste a massa e o rolo para preparar a pizza",
-        "Leve a massa aberta até o cliente para entregar",
+        "Clique em um ingrediente e depois na massa para adicionar sabor",
+        "Leve a pizza pronta até o cliente para entregar",
         "Semaforo verde: recurso disponível",
-        "Semaforo vermelho: recurso em uso"
+        "Semaforo vermelho: recurso em uso",
+        "Errar o sabor resulta em cliente insatisfeito!"
     ]
     
     for idx, instruction in enumerate(instructions):

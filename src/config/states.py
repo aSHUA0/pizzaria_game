@@ -6,3 +6,5 @@ movendoRolo = False
 movendoMassaAberta = False
 mostrarMassa = True
 pizza_pronta = False
+sabor_selecionado = None
+movendo_ingrediente = False

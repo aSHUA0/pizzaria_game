@@ -1,9 +1,10 @@
 import pygame
 import threading
 import time
+import random
 
 class Cliente(threading.Thread):
-    def __init__(self, id_cliente, rect, massa_aberta, pizza_semaforo, clientes_estado, on_finish):
+    def __init__(self, id_cliente, rect, massa_aberta, pizza_semaforo, clientes_estado, on_finish, sabor_desejado):
         super().__init__()
         self.id = id_cliente
         self.rect = rect
@@ -12,6 +13,8 @@ class Cliente(threading.Thread):
         self.clientes_estado = clientes_estado
         self.running = True
         self.on_finish = on_finish
+        self.sabor_desejado = sabor_desejado
+        self.sabor_recebido = None
 
     def run(self):
         self.clientes_estado[self.id] = "esperando"
@@ -22,7 +25,7 @@ class Cliente(threading.Thread):
                 return
 
         self.pizza_semaforo.acquire()
-        self.clientes_estado[self.id] = "comendo"
+        self.clientes_estado[self.id] = "comendo" if self.sabor_recebido == self.sabor_desejado else "erro"
         time.sleep(5)
         self.clientes_estado[self.id] = "idle"
         self.pizza_semaforo.release()
@@ -31,7 +34,10 @@ class Cliente(threading.Thread):
             self.on_finish(self.id)
 
     def detecta_pizza(self):
-        return self.massa_aberta.rect.colliderect(self.rect)
+        if self.massa_aberta.rect.colliderect(self.rect):
+            self.sabor_recebido = self.massa_aberta.sabor
+            return True
+        return False
     
 class ObjetoFisico:
     def __init__(self, x, y, largura, altura, cor, gravidade=0.01):
@@ -72,3 +78,8 @@ class Rolo(ObjetoFisico):
             return False
             
         return True
+
+class Ingrediente(ObjetoFisico):
+    def __init__(self, x, y, largura, altura, cor, sabor):
+        super().__init__(x, y, largura, altura, cor, gravidade=0.01)
+        self.sabor = sabor
