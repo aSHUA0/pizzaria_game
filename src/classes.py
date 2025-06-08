@@ -16,18 +16,18 @@ class Cliente(threading.Thread):
         self.clientes_estado[self.id] = "esperando"
 
         while not self.detecta_pizza():
-            time.sleep(0.1)
+            time.sleep(1)
             if not self.running:
                 return
 
         self.pizza_semaforo.acquire()
         self.clientes_estado[self.id] = "comendo"
-        time.sleep(2)
+        time.sleep(5)
         self.clientes_estado[self.id] = "idle"
         self.pizza_semaforo.release()
 
     def detecta_pizza(self):
-        return self.massa_aberta.colliderect(self.rect)
+        return self.massa_aberta.rect.colliderect(self.rect)
     
 class ObjetoFisico:
     def __init__(self, x, y, largura, altura, cor, gravidade=0.01):
