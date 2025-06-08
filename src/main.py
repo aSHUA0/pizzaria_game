@@ -4,6 +4,26 @@ import time
 import classes
 from config import color, states
 
+def cliente_finalizou(id_cliente):
+    global clientes, clientes_estado
+
+    # Remove o cliente com esse ID
+    clientes = [c for c in clientes if c["id"] != id_cliente]
+    clientes_estado.pop(id_cliente, None)
+
+    # Reposiciona os clientes restantes
+    for i, cliente in enumerate(clientes):
+        cliente["id"] = i + 1
+        cliente["rect"].x = cliente1_x + i * (largura_cliente + espaco_entre_clientes)
+
+    # Atualiza os estados com os novos IDs
+    novos_estados = {}
+    for i, cliente in enumerate(clientes):
+        novos_estados[cliente["id"]] = clientes_estado.get(cliente["id"], "idle")
+    clientes_estado.clear()
+    clientes_estado.update(novos_estados)
+
+
 pygame.init()
 WIDTH, HEIGHT = 1250, 900       #Tamanho tela
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -20,8 +40,6 @@ chao = altura_mesa - 100
 
 # Semaforo e threads
 pizza_semaforo = threading.Semaphore(1)
-cliente_esperando = None  # Cliente que está esperando pela pizza
-cliente_comendo = None    # Cliente que está comendo
 
 
 # Inicialização dos clientes
@@ -30,7 +48,7 @@ cliente1_x = 800
 
 clientes = []
 cliente_threads = []
-num_clientes = 3
+num_clientes = 6
 clientes_estado = {}
 
 for i in range(num_clientes):
@@ -38,7 +56,7 @@ for i in range(num_clientes):
     x = cliente1_x + i * (largura_cliente + espaco_entre_clientes)
     rect = pygame.Rect(x, cliente_y, largura_cliente, altura_cliente)
     clientes_estado[id_cliente] = "idle"
-    clientes.append(rect)
+    clientes.append({"id": id_cliente, "rect": rect})
 
 # Objetos da cena
 mesa = pygame.Rect(0, HEIGHT - altura_mesa, WIDTH, altura_mesa)
@@ -63,11 +81,21 @@ while running:
                 states.movendoRolo = not states.movendoRolo
             elif massa_aberta.rect.collidepoint(pygame.mouse.get_pos()):
                 states.movendoMassaAberta = not states.movendoMassaAberta
-            elif any(cliente.collidepoint(pygame.mouse.get_pos()) for cliente in clientes):
-                cliente_id = [i+1 for i, c in enumerate(clientes) if c.collidepoint(pygame.mouse.get_pos())][0]
-                if clientes_estado[cliente_id] == "idle":
-                    cliente_obj = classes.Cliente(cliente_id, clientes[cliente_id - 1], massa_aberta, pizza_semaforo, clientes_estado)
-                    cliente_obj.start()
+            else:
+                for cliente in clientes:
+                    if cliente["rect"].collidepoint(pygame.mouse.get_pos()):
+                        cliente_id = cliente["id"]
+                        if clientes_estado[cliente_id] == "idle":
+                            cliente_obj = classes.Cliente(
+                            cliente_id,
+                            cliente["rect"],
+                            massa_aberta,
+                            pizza_semaforo,
+                            clientes_estado,
+                            on_finish=cliente_finalizou
+                        )
+                        cliente_obj.start()
+
 
     # Movimento dos objetos
     if states.movendoMassa:
@@ -87,10 +115,9 @@ while running:
     rolo.aplicar_gravidade(topo_mesa)
     
     # Verifica se a massa aberta foi entregue a algum cliente
-    for i, cliente in enumerate(clientes):
-        if massa_aberta.rect.colliderect(cliente) and clientes_estado[i+1] == "esperando":
-            clientes_estado[i+1] = "recebendo"
-            # Marca a pizza como entregue
+    for cliente in clientes:
+        if massa_aberta.rect.colliderect(cliente["rect"]) and clientes_estado.get(cliente["id"], "idle") == "esperando":
+            clientes_estado[cliente["id"]] = "recebendo"
             states.pizza_pronta = False
 
     # Renderização
@@ -108,11 +135,11 @@ while running:
     pygame.draw.rect(screen, color.ROLLER_COLOR, rolo)
     
     # Clientes
-    for i in range(len(clientes)):
-        id_cliente = i + 1
-        estado = clientes_estado[id_cliente]
+    for cliente in clientes:
+        id_cliente = cliente["id"]
+        rect = cliente["rect"]
+        estado = clientes_estado.get(id_cliente, "idle")
 
-        # Cor baseada no estado
         if estado == "comendo":
             cor = color.GREEN
         elif estado == "esperando":
@@ -122,11 +149,10 @@ while running:
         else:
             cor = color.BLACK
 
-        pygame.draw.rect(screen, cor, clientes[i])
-        
-        # Texto do estado
+        pygame.draw.rect(screen, cor, rect)
         texto = font.render(f"Cliente {id_cliente}: {estado}", True, color.BLACK)
-        screen.blit(texto, (clientes[i].x, clientes[i].y - 25))
+        screen.blit(texto, (rect.x, rect.y - 25))
+
     
     # Painel de informações do semáforo
     semaphore_value = pizza_semaforo._value
