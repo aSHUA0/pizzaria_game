@@ -2,22 +2,11 @@ import pygame
 import threading
 import time
 import classes
+from config import color, states
 
 pygame.init()
-WIDTH, HEIGHT = 1250, 900
+WIDTH, HEIGHT = 1250, 900       #Tamanho tela
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-
-# Cores
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GREEN = (0, 200, 0)
-YELLOW = (255, 200, 0)
-RED = (200, 0, 0)
-BLUE = (0, 0, 200)
-TABLE_COLOR = (100, 50, 20)
-DOUGH_COLOR = (0, 255, 0)
-ROLLER_COLOR = (255, 255, 0)
-PIZZA_READY_COLOR = (255, 100, 100)
 
 # Configurações visuais
 altura_mesa = 300
@@ -28,16 +17,6 @@ y = HEIGHT // 2
 vel_queda = 0
 gravidade = 0.01
 chao = altura_mesa - 100
-
-# Estados dos objetos
-queda_rolo = False
-queda_massa = False
-queda_massaAberta = False
-movendoMassa = False
-movendoRolo = False
-movendoMassaAberta = False
-mostrarMassa = True
-pizza_pronta = False
 
 # Semaforo e threads
 pizza_semaforo = threading.Semaphore(1)
@@ -63,9 +42,9 @@ for i in range(num_clientes):
 
 # Objetos da cena
 mesa = pygame.Rect(0, HEIGHT - altura_mesa, WIDTH, altura_mesa)
-massa = classes.ObjetoFisico(50, 740, 100, 100, DOUGH_COLOR)
-massa_aberta = classes.ObjetoFisico(150, 500, 100, 150, PIZZA_READY_COLOR)
-rolo = classes.Rolo(50, 640, 100, 50, YELLOW)
+massa = classes.ObjetoFisico(50, 740, 100, 100, color.DOUGH_COLOR)
+massa_aberta = classes.ObjetoFisico(150, 500, 100, 150, color.PIZZA_READY_COLOR)
+rolo = classes.Rolo(50, 640, 100, 50, color.YELLOW)
 
 # Fonte para texto
 font = pygame.font.SysFont('Arial', 24)
@@ -79,11 +58,11 @@ while running:
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if massa.rect.collidepoint(pygame.mouse.get_pos()):
-                movendoMassa = not movendoMassa
+                states.movendoMassa = not states.movendoMassa
             elif rolo.rect.collidepoint(pygame.mouse.get_pos()):
-                movendoRolo = not movendoRolo
+                states.movendoRolo = not states.movendoRolo
             elif massa_aberta.rect.collidepoint(pygame.mouse.get_pos()):
-                movendoMassaAberta = not movendoMassaAberta
+                states.movendoMassaAberta = not states.movendoMassaAberta
             elif any(cliente.collidepoint(pygame.mouse.get_pos()) for cliente in clientes):
                 cliente_id = [i+1 for i, c in enumerate(clientes) if c.collidepoint(pygame.mouse.get_pos())][0]
                 if clientes_estado[cliente_id] == "idle":
@@ -91,15 +70,15 @@ while running:
                     cliente_obj.start()
 
     # Movimento dos objetos
-    if movendoMassa:
+    if states.movendoMassa:
         massa.mover_para_mouse(pygame.mouse.get_pos(), mesa)
     
-    if movendoMassaAberta:
+    if states.movendoMassaAberta:
         massa_aberta.mover_para_mouse(pygame.mouse.get_pos(), mesa)
 
-    if movendoRolo:
+    if states.movendoRolo:
         rolo.mover_para_mouse(pygame.mouse.get_pos(), mesa)
-        mostrarMassa = rolo.abrir_massa(pygame.mouse.get_pos(), massa)
+        states.mostrarMassa = rolo.abrir_massa(pygame.mouse.get_pos(), massa)
 
     # Física dos objetos
     topo_mesa = mesa.top + 150
@@ -109,24 +88,24 @@ while running:
     
     # Verifica se a massa aberta foi entregue a algum cliente
     for i, cliente in enumerate(clientes):
-        if massa_aberta.rect.colliderect(cliente):
+        if massa_aberta.rect.colliderect(cliente) and clientes_estado[i+1] == "esperando":
             clientes_estado[i+1] = "recebendo"
             # Marca a pizza como entregue
-            pizza_pronta = False
+            states.pizza_pronta = False
 
     # Renderização
-    screen.fill(WHITE)
+    screen.fill(color.WHITE)
     
     # Mesa
-    pygame.draw.rect(screen, TABLE_COLOR, mesa)
+    pygame.draw.rect(screen, color.TABLE_COLOR, mesa)
     
     # Objetos
-    if mostrarMassa:
-        pygame.draw.rect(screen, DOUGH_COLOR, massa)
+    if states.mostrarMassa:
+        pygame.draw.rect(screen, color.DOUGH_COLOR, massa)
     else:
-        pygame.draw.rect(screen, PIZZA_READY_COLOR if pizza_pronta else DOUGH_COLOR, massa_aberta)
+        pygame.draw.rect(screen, color.PIZZA_READY_COLOR if states.pizza_pronta else color.DOUGH_COLOR, massa_aberta)
     
-    pygame.draw.rect(screen, ROLLER_COLOR, rolo)
+    pygame.draw.rect(screen, color.ROLLER_COLOR, rolo)
     
     # Clientes
     for i in range(len(clientes)):
@@ -135,29 +114,29 @@ while running:
 
         # Cor baseada no estado
         if estado == "comendo":
-            cor = GREEN
+            cor = color.GREEN
         elif estado == "esperando":
-            cor = YELLOW
+            cor = color.YELLOW
         elif estado == "recebendo":
-            cor = BLUE
+            cor = color.BLUE
         else:
-            cor = BLACK
+            cor = color.BLACK
 
         pygame.draw.rect(screen, cor, clientes[i])
         
         # Texto do estado
-        texto = font.render(f"Cliente {id_cliente}: {estado}", True, BLACK)
+        texto = font.render(f"Cliente {id_cliente}: {estado}", True, color.BLACK)
         screen.blit(texto, (clientes[i].x, clientes[i].y - 25))
     
     # Painel de informações do semáforo
     semaphore_value = pizza_semaforo._value
     semaphore_text = semaphore_font.render(f"SEMÁFORO: {semaphore_value}", True, 
-                                         GREEN if semaphore_value > 0 else RED)
+                                         color.GREEN if semaphore_value > 0 else color.RED)
     screen.blit(semaphore_text, (50, 50))
     
     # Status da pizza
-    pizza_status = "PRONTA" if pizza_pronta else "EM PREPARO"
-    status_text = font.render(f"Pizza: {pizza_status}", True, BLACK)
+    pizza_status = "PRONTA" if states.pizza_pronta else "EM PREPARO"
+    status_text = font.render(f"Pizza: {pizza_status}", True, color.BLACK)
     screen.blit(status_text, (50, 90))
     
     # Instruções
@@ -170,7 +149,7 @@ while running:
     ]
     
     for idx, instruction in enumerate(instructions):
-        text = font.render(instruction, True, BLACK)
+        text = font.render(instruction, True, color.BLACK)
         screen.blit(text, (50, 130 + idx * 30))
     
     pygame.display.flip()
