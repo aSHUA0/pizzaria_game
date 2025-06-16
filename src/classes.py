@@ -15,6 +15,7 @@ class Cliente(threading.Thread):
         self.on_finish = on_finish
         self.sabor_desejado = sabor_desejado
         self.sabor_recebido = None
+        self.tempo_inicio = time.time()
 
     def run(self):
         self.clientes_estado[self.id] = "esperando"
@@ -23,15 +24,18 @@ class Cliente(threading.Thread):
             time.sleep(1)
             if not self.running:
                 return
+            
+        tempo_espera = time.time() - self.tempo_inicio
+        resultado = "acerto" if self.sabor_recebido == self.sabor_desejado else "erro"
 
         self.pizza_semaforo.acquire()
         self.clientes_estado[self.id] = "comendo" if self.sabor_recebido == self.sabor_desejado else "erro"
-        time.sleep(5)
+        time.sleep(2)
         self.clientes_estado[self.id] = "idle"
         self.pizza_semaforo.release()
 
         if self.on_finish:
-            self.on_finish(self.id)
+            self.on_finish(self.id, resultado, tempo_espera)
 
     def detecta_pizza(self):
         if self.massa_aberta.rect.colliderect(self.rect):

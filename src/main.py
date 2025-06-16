@@ -2,10 +2,18 @@ import pygame
 import threading
 import random
 import classes
-from config import color, states
+from config import color, states, values
 
-def cliente_finalizou(id_cliente):
-    global clientes, clientes_estado
+def cliente_finalizou(id_cliente, resultado, tempo_espera):
+    global clientes, clientes_estado, bonus
+
+    if resultado == "acerto":
+        values.score += values.score_win
+        if tempo_espera < 5:
+            values.bonus = int(values.extra_time * (5 - tempo_espera))
+            values.score += values.bonus
+    elif resultado == "erro":
+        values.score += values.score_loss
 
     # Remove o cliente com esse ID
     clientes = [c for c in clientes if c["id"] != id_cliente]
@@ -14,7 +22,7 @@ def cliente_finalizou(id_cliente):
     # Reposiciona os clientes restantes
     for i, cliente in enumerate(clientes):
         cliente["id"] = i + 1
-        cliente["rect"].x = cliente1_x + i * (largura_cliente + espaco_entre_clientes)
+        cliente["rect"].x = cliente1_x + i * (values.largura_cliente + values.espaco_entre_clientes)
 
     # Atualiza os estados com os novos IDs
     novos_estados = {}
@@ -28,16 +36,6 @@ pygame.init()
 WIDTH, HEIGHT = 1250, 900       #Tamanho tela
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-# Configurações visuais
-altura_mesa = 300
-altura_cliente = 150
-largura_cliente = 80
-espaco_entre_clientes = 40
-y = HEIGHT // 2
-vel_queda = 0
-gravidade = 0.01
-chao = altura_mesa - 100
-
 # Semaforo e threads
 pizza_semaforo = threading.Semaphore(1)
 
@@ -50,24 +48,24 @@ CORES_SABORES = {
 }
 
 # Inicialização dos clientes
-cliente_y = HEIGHT - altura_mesa - altura_cliente
+cliente_y = HEIGHT - values.altura_mesa - values.altura_cliente
 cliente1_x = 800
 
 clientes = []
 cliente_threads = []
-num_clientes = 6
+num_clientes = 10
 clientes_estado = {}
 
 for i in range(num_clientes):
     id_cliente = i + 1
-    x = cliente1_x + i * (largura_cliente + espaco_entre_clientes)
-    rect = pygame.Rect(x, cliente_y, largura_cliente, altura_cliente)
+    x = cliente1_x + i * (values.largura_cliente + values.espaco_entre_clientes)
+    rect = pygame.Rect(x, cliente_y, values.largura_cliente, values.altura_cliente)
     sabor_desejado = random.choice(SABORES)
     clientes_estado[id_cliente] = "idle"
     clientes.append({"id": id_cliente, "rect": rect, "sabor_desejado": sabor_desejado})
 
 # Objetos da cena
-mesa = pygame.Rect(0, HEIGHT - altura_mesa, WIDTH, altura_mesa)
+mesa = pygame.Rect(0, HEIGHT - values.altura_mesa, WIDTH, values.altura_mesa)
 massa = classes.ObjetoFisico(50, 740, 100, 100, color.DOUGH_COLOR)
 massa_aberta = classes.ObjetoFisico(150, 500, 100, 150, color.PIZZA_READY_COLOR)
 massa_aberta.sabor = None  # Inicialmente sem sabor
@@ -154,7 +152,7 @@ while running:
     rolo.aplicar_gravidade(topo_mesa)
     for ingrediente in ingredientes:
         ingrediente.aplicar_gravidade(topo_mesa)
-    
+
     # Renderização
     screen.fill(color.WHITE)
     
@@ -198,24 +196,32 @@ while running:
         
         # Indicador visual do sabor dentro do cliente
         cor_sabor = CORES_SABORES[sabor_desejado]
-        indicador_sabor = pygame.Rect(rect.x + 5, rect.y + 5, rect.width - 10, 15)
-        pygame.draw.rect(screen, cor_sabor, indicador_sabor)
         
         # Textos informativos
         texto_id = font.render(f"Cliente {id_cliente}", True, color.BLACK)
         texto_estado = font.render(f"{estado}", True, color.BLACK)
-        texto_sabor = font.render(f"Sabor: {sabor_desejado}", True, cor_sabor)
-        
+        texto_score = font.render(f"Pontuação: {values.score}", True, color.RED)
+        texto_score_loss = font.render("-50", True, color.RED)
+        texto_score_win = font.render(f"+{values.score_win + values.bonus}", True, color.GREEN)
+
         # Posiciona os textos acima do cliente
         screen.blit(texto_id, (rect.x, rect.y - 75))
         screen.blit(texto_estado, (rect.x, rect.y - 50))
-        screen.blit(texto_sabor, (rect.x, rect.y - 25))
         
-        # Mensagem de erro se aplicável
+        #Mensagem de pontuação
+        if estado == "comendo":
+            screen.blit(texto_score_win, (rect.x, rect.y - 100))
         if estado == "erro":
             texto_erro = font.render("Sabor errado!", True, color.RED)
             screen.blit(texto_erro, (rect.x, rect.y - 100))
-    
+            screen.blit(texto_score_loss, (rect.x, rect.y - 125))
+
+        if estado == "esperando":
+            texto_sabor = font.render(f"Sabor: {sabor_desejado}", True, cor_sabor)
+            screen.blit(texto_sabor, (rect.x, rect.y - 25))
+        
+    screen.blit(texto_score, (1000 , 25))
+
     # Sabor selecionado
     if states.sabor_selecionado:
         texto_sabor = font.render(f"Sabor selecionado: {states.sabor_selecionado}", True, color.BLACK)
