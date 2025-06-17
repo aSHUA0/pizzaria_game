@@ -17,7 +17,7 @@ git clone https://github.com/aSHUA0/pizzaria_game.git
 2. Navegue até o diretório do projeto:
 
 ```bash
-cd prevision_credit
+cd pizzaria_game
 ```
 
 3. Instale as dependências:
