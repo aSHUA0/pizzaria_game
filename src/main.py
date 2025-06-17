@@ -36,15 +36,16 @@ pygame.init()
 WIDTH, HEIGHT = 1250, 900       #Tamanho tela
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
+from config import images
 # Semaforo e threads
 pizza_semaforo = threading.Semaphore(1)
 
 # Sabores disponíveis
-SABORES = ["calabresa", "queijo", "palmito"]
+SABORES = ["calabresa", "marquerita", "cogumelo"]
 CORES_SABORES = {
     "calabresa": color.CALABRESA_COLOR,
-    "queijo": color.QUEIJO_COLOR,
-    "palmito": color.PALMITO_COLOR
+    "marquerita": color.QUEIJO_COLOR,
+    "cogumelo": color.PALMITO_COLOR
 }
 
 # Inicialização dos clientes
@@ -62,20 +63,21 @@ for i in range(num_clientes):
     rect = pygame.Rect(x, cliente_y, values.largura_cliente, values.altura_cliente)
     sabor_desejado = random.choice(SABORES)
     clientes_estado[id_cliente] = "idle"
-    clientes.append({"id": id_cliente, "rect": rect, "sabor_desejado": sabor_desejado})
+    clientes.append({"id": id_cliente, "rect": rect, "sabor_desejado": sabor_desejado, "image": images.cliente_imgs})
 
 # Objetos da cena
+fundo = images.fundo.get_rect()
 mesa = pygame.Rect(0, HEIGHT - values.altura_mesa, WIDTH, values.altura_mesa)
-massa = classes.ObjetoFisico(50, 740, 100, 100, color.DOUGH_COLOR)
-massa_aberta = classes.ObjetoFisico(150, 500, 100, 150, color.PIZZA_READY_COLOR)
+massa = classes.ObjetoFisico(50, 790, 100, 100, color.DOUGH_COLOR)
+massa_aberta = classes.ObjetoFisico(50, 740, 200, 200, color.PIZZA_READY_COLOR)
 massa_aberta.sabor = None  # Inicialmente sem sabor
-rolo = classes.Rolo(50, 640, 100, 50, color.YELLOW)
+rolo = classes.Rolo(50, 680, 200, 100, color.YELLOW)
 
 # Ingredientes
 ingredientes = [
-    classes.Ingrediente(200, 740, 80, 30, color.CALABRESA_COLOR, "calabresa"),
-    classes.Ingrediente(300, 740, 80, 30, color.QUEIJO_COLOR, "queijo"),
-    classes.Ingrediente(400, 740, 80, 30, color.PALMITO_COLOR, "palmito")
+    classes.Ingrediente(1100, 680, 100, 100, color.CALABRESA_COLOR, "calabresa"),
+    classes.Ingrediente(1100, 750, 100, 100, color.QUEIJO_COLOR, "marquerita"),
+    classes.Ingrediente(1100, 820, 100, 100, color.PALMITO_COLOR, "cogumelo")
 ]
 
 # Fonte para texto
@@ -95,7 +97,6 @@ while running:
             for ingrediente in ingredientes:
                 if ingrediente.rect.collidepoint(mouse_pos):
                     states.sabor_selecionado = ingrediente.sabor
-                    states.movendo_ingrediente = True
             
             # Verifica clique na massa aberta para adicionar sabor
             if massa_aberta.rect.collidepoint(mouse_pos) and states.sabor_selecionado:
@@ -126,9 +127,6 @@ while running:
                             )
                             cliente_obj.start()
 
-        if event.type == pygame.MOUSEBUTTONUP:
-            states.movendo_ingrediente = False
-
     # Movimento dos objetos
     if states.movendoMassa:
         massa.mover_para_mouse(pygame.mouse.get_pos(), mesa)
@@ -158,20 +156,26 @@ while running:
     
     # Mesa
     pygame.draw.rect(screen, color.TABLE_COLOR, mesa)
+    screen.blit(images.fundo, (0,0))
     
     # Objetos
     if states.mostrarMassa:
-        pygame.draw.rect(screen, color.DOUGH_COLOR, massa)
+        screen.blit(images.massa, massa.rect)
     else:
-        pygame.draw.rect(screen, massa_aberta.cor, massa_aberta)
+        if massa_aberta.sabor == "calabresa":
+            screen.blit(images.pizza_calabresa, massa_aberta.rect)
+        elif massa_aberta.sabor == "marquerita":
+            screen.blit(images.pizza_marquerita, massa_aberta.rect)
+        elif massa_aberta.sabor == "cogumelo":
+            screen.blit(images.pizza_cogumelo, massa_aberta.rect)
+        else:    
+            screen.blit(images.massa_aberta, massa_aberta.rect)
     
-    pygame.draw.rect(screen, color.ROLLER_COLOR, rolo)
+    screen.blit(images.rolo, rolo.rect)
     
     # Ingredientes
     for ingrediente in ingredientes:
-        pygame.draw.rect(screen, ingrediente.cor, ingrediente.rect)
-        texto = font.render(ingrediente.sabor.capitalize(), True, color.BLACK)
-        screen.blit(texto, (ingrediente.rect.x, ingrediente.rect.y - 25))
+        screen.blit(images.pote_imgs[ingrediente.sabor], ingrediente.rect)
     
     # Clientes
     for cliente in clientes:
@@ -179,6 +183,8 @@ while running:
         rect = cliente["rect"]
         estado = clientes_estado.get(id_cliente, "idle")
         sabor_desejado = cliente["sabor_desejado"]
+
+        screen.blit(images.cliente_imgs[estado], rect)
 
         # Cor do cliente baseada no estado
         if estado == "comendo":
@@ -192,7 +198,6 @@ while running:
         else:
             cor = color.BLACK
 
-        pygame.draw.rect(screen, cor, rect)
         
         # Indicador visual do sabor dentro do cliente
         cor_sabor = CORES_SABORES[sabor_desejado]
@@ -200,7 +205,7 @@ while running:
         # Textos informativos
         texto_id = font.render(f"Cliente {id_cliente}", True, color.BLACK)
         texto_estado = font.render(f"{estado}", True, color.BLACK)
-        texto_score = font.render(f"Pontuação: {values.score}", True, color.RED)
+        texto_score = font.render(f"Pontuação: {values.score}", True, color.BLACK)
         texto_score_loss = font.render("-50", True, color.RED)
         texto_score_win = font.render(f"+{values.score_win + values.bonus}", True, color.GREEN)
 
@@ -238,20 +243,6 @@ while running:
     status_text = font.render(f"Pizza: {pizza_status}", True, color.BLACK)
     screen.blit(status_text, (50, 90))
     
-    # Instruções
-    instructions = [
-        "Clique nos clientes para pedir pizza",
-        "Arraste a massa e o rolo para preparar a pizza",
-        "Clique em um ingrediente e depois na massa para adicionar sabor",
-        "Leve a pizza pronta até o cliente para entregar",
-        "Semaforo verde: recurso disponível",
-        "Semaforo vermelho: recurso em uso",
-        "Errar o sabor resulta em cliente insatisfeito!"
-    ]
-    
-    for idx, instruction in enumerate(instructions):
-        text = font.render(instruction, True, color.BLACK)
-        screen.blit(text, (50, 130 + idx * 30))
     
     pygame.display.flip()
 

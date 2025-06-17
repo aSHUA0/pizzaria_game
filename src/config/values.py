@@ -1,8 +1,10 @@
 # Configurações visuais
-altura_mesa = 300
-altura_cliente = 150
-largura_cliente = 80
-espaco_entre_clientes = 40
+altura_mesa = 203
+altura_cliente = 250
+largura_cliente = 190
+espaco_entre_clientes = 10
+largura_pote = 100
+altura_pote = 100
 
 #Pontuação do jogo
 score = 0
