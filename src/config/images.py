@@ -2,7 +2,7 @@ import os
 import pygame
 from config import values
 
-caminho_imagem = os.path.join("..","pizzaria","assets")
+caminho_imagem = os.path.join("..","pizzaria_game","assets")
 
 #Imagens de pizza
 pizza_calabresa = pygame.image.load(f'{caminho_imagem}\\Pizza\\calabresa.png').convert_alpha()
